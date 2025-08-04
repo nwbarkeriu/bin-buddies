@@ -1,0 +1,353 @@
+@page "/register"
+@page "/pricing"
+@layout LandingLayout
+@using Microsoft.AspNetCore.Identity
+@using BinBuddies.Models
+@using BinBuddies.Services
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject ISubscriptionService SubscriptionService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>@(Context == "pricing" ? "Pricing Plans" : "Create Account") - Bin Buddies</PageTitle>
+
+<div class="container py-5">
+    @if (Context == "pricing" || ShowPricing)
+    {
+        <!-- Pricing Section -->
+        <div class="row">
+            <div class="col-12 text-center mb-5">
+                <h1 class="display-4 fw-bold">Choose Your Plan</h1>
+                <p class="lead text-muted">Start your free 30-day trial today. Cancel anytime.</p>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            @foreach (var plan in AvailablePlans.OrderBy(p => p.MonthlyPrice))
+            {
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100 @(plan.IsPopular ? "border-success position-relative" : "") @(SelectedPlan?.Id == plan.Id ? "shadow-lg" : "")">
+                        @if (plan.IsPopular)
+                        {
+                            <div class="badge bg-success position-absolute top-0 start-50 translate-middle px-3 py-2">
+                                Most Popular
+                            </div>
+                        }
+                        <div class="card-header text-center @(SelectedPlan?.Id == plan.Id ? "bg-primary text-white" : plan.IsPopular ? "bg-success text-white" : "bg-light")">
+                            <h4>@plan.Name</h4>
+                            <p class="mb-0">@plan.Description</p>
+                        </div>
+                        <div class="card-body text-center">
+                            <h2 class="card-title" style="color: @plan.BadgeColor">
+                                $@plan.MonthlyPrice.ToString("0")<small class="text-muted">/month</small>
+                            </h2>
+                            <ul class="list-unstyled mt-4">
+                                <li class="mb-2">
+                                    <span class="oi oi-check text-success me-2"></span>
+                                    @plan.BinsIncluded Bin@(plan.BinsIncluded > 1 ? "s" : "") Included
+                                </li>
+                                <li class="mb-2">
+                                    <span class="oi oi-check text-success me-2"></span>
+                                    @(plan.PickupsPerWeek == 0 ? "Custom Schedule" : $"{plan.PickupsPerWeek}x Weekly Service")
+                                </li>
+                                @if (plan.IncludesSMSNotifications)
+                                {
+                                    <li class="mb-2">
+                                        <span class="oi oi-check text-success me-2"></span>SMS Notifications
+                                    </li>
+                                }
+                                @if (plan.IncludesGPSTracking)
+                                {
+                                    <li class="mb-2">
+                                        <span class="oi oi-check text-success me-2"></span>Real-time GPS Tracking
+                                    </li>
+                                }
+                                @if (plan.IncludesPrioritySupport)
+                                {
+                                    <li class="mb-2">
+                                        <span class="oi oi-check text-success me-2"></span>Priority Support
+                                    </li>
+                                }
+                                @if (plan.IncludesAccountManager)
+                                {
+                                    <li class="mb-2">
+                                        <span class="oi oi-check text-success me-2"></span>Dedicated Account Manager
+                                    </li>
+                                }
+                                @if (plan.IncludesServiceReports)
+                                {
+                                    <li class="mb-2">
+                                        <span class="oi oi-check text-success me-2"></span>Monthly Service Reports
+                                    </li>
+                                }
+                                <li class="mb-2">
+                                    <span class="oi oi-check text-success me-2"></span>@plan.SupportLevel Support
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="card-footer">
+                            <button type="button" class="btn @(SelectedPlan?.Id == plan.Id ? "btn-primary" : "btn-outline-primary") w-100"
+                                    @onclick="() => SelectPlan(plan)">
+                                @(SelectedPlan?.Id == plan.Id ? "Selected" : plan.IsEnterprise ? "Contact Sales" : "Select Plan")
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (SelectedPlan != null)
+        {
+            <div class="row justify-content-center mt-5">
+                <div class="col-md-8">
+                    <div class="card border-primary">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Ready to start your free trial?</h5>
+                            <p class="text-muted">You've selected the <strong>@SelectedPlan.Name</strong> plan for <strong>$@SelectedPlan.MonthlyPrice/month</strong></p>
+                            <p class="small text-muted">@SelectedPlan.Description</p>
+                            <button class="btn btn-primary btn-lg px-5" @onclick="ProceedToRegistration">
+                                Continue to Account Setup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    @if (!ShowPricing && SelectedPlan != null)
+    {
+        <!-- Registration Form -->
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow">
+                    <div class="card-body p-5">
+                        <div class="text-center mb-4">
+                            <h2 class="h3 mb-3">Create Your Account</h2>
+                            <p class="text-muted">Start your 30-day free trial with the <strong>@SelectedPlan?.Name</strong></p>
+                            <p class="small text-success">
+                                <span class="oi oi-check me-1"></span>30-day free trial
+                                <span class="oi oi-check me-2 ms-3"></span>Cancel anytime
+                                <span class="oi oi-check me-2 ms-3"></span>No setup fees
+                            </p>
+                        </div>
+
+                        <EditForm Model="@RegisterModel" OnValidSubmit="@HandleRegistration">
+                            <DataAnnotationsValidator />
+                            
+                            @if (!string.IsNullOrEmpty(ErrorMessage))
+                            {
+                                <div class="alert alert-danger" role="alert">
+                                    @ErrorMessage
+                                </div>
+                            }
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="firstName" class="form-label">First Name</label>
+                                    <InputText @bind-Value="RegisterModel.FirstName" class="form-control" id="firstName" />
+                                    <ValidationMessage For="@(() => RegisterModel.FirstName)" class="text-danger" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="lastName" class="form-label">Last Name</label>
+                                    <InputText @bind-Value="RegisterModel.LastName" class="form-control" id="lastName" />
+                                    <ValidationMessage For="@(() => RegisterModel.LastName)" class="text-danger" />
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email Address</label>
+                                <InputText @bind-Value="RegisterModel.Email" class="form-control" id="email" />
+                                <ValidationMessage For="@(() => RegisterModel.Email)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">Phone Number</label>
+                                <InputText @bind-Value="RegisterModel.PhoneNumber" class="form-control" id="phone" />
+                                <ValidationMessage For="@(() => RegisterModel.PhoneNumber)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="address" class="form-label">Service Address</label>
+                                <InputText @bind-Value="RegisterModel.Address" class="form-control" id="address" />
+                                <ValidationMessage For="@(() => RegisterModel.Address)" class="text-danger" />
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="city" class="form-label">City</label>
+                                    <InputText @bind-Value="RegisterModel.City" class="form-control" id="city" />
+                                    <ValidationMessage For="@(() => RegisterModel.City)" class="text-danger" />
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="state" class="form-label">State</label>
+                                    <InputText @bind-Value="RegisterModel.State" class="form-control" id="state" />
+                                    <ValidationMessage For="@(() => RegisterModel.State)" class="text-danger" />
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="zipCode" class="form-label">ZIP Code</label>
+                                    <InputText @bind-Value="RegisterModel.ZipCode" class="form-control" id="zipCode" />
+                                    <ValidationMessage For="@(() => RegisterModel.ZipCode)" class="text-danger" />
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Password</label>
+                                <InputText type="password" @bind-Value="RegisterModel.Password" class="form-control" id="password" />
+                                <ValidationMessage For="@(() => RegisterModel.Password)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="confirmPassword" class="form-label">Confirm Password</label>
+                                <InputText type="password" @bind-Value="RegisterModel.ConfirmPassword" class="form-control" id="confirmPassword" />
+                                <ValidationMessage For="@(() => RegisterModel.ConfirmPassword)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3 form-check">
+                                <InputCheckbox @bind-Value="RegisterModel.AgreeToTerms" class="form-check-input" id="agreeToTerms" />
+                                <label class="form-check-label" for="agreeToTerms">
+                                    I agree to the <a href="/terms" target="_blank">Terms of Service</a> and <a href="/privacy" target="_blank">Privacy Policy</a>
+                                </label>
+                                <ValidationMessage For="@(() => RegisterModel.AgreeToTerms)" class="text-danger" />
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg" disabled="@IsLoading">
+                                    @if (IsLoading)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    }
+                                    Start Free Trial
+                                </button>
+                            </div>
+                        </EditForm>
+
+                        <div class="text-center mt-4">
+                            <small class="text-muted">
+                                Already have an account? <a href="/login">Sign in here</a>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Context { get; set; }
+
+    private RegisterViewModel RegisterModel = new();
+    private string ErrorMessage = string.Empty;
+    private bool IsLoading = false;
+    private bool ShowPricing = true;
+    private SubscriptionPlan? SelectedPlan;
+    private List<SubscriptionPlan> AvailablePlans = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load available plans from the database
+        try
+        {
+            AvailablePlans = await SubscriptionService.GetAvailablePlansAsync();
+            
+            // Pre-select the most popular plan
+            SelectedPlan = AvailablePlans.FirstOrDefault(p => p.IsPopular) ?? AvailablePlans.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"Error loading plans: {ex.Message}");
+            // Fallback to empty list if database isn't ready
+            AvailablePlans = new List<SubscriptionPlan>();
+        }
+        
+        // If coming from /register directly, show pricing first
+        ShowPricing = true;
+    }
+
+    private void SelectPlan(SubscriptionPlan plan)
+    {
+        SelectedPlan = plan;
+        StateHasChanged();
+    }
+
+    private void ProceedToRegistration()
+    {
+        ShowPricing = false;
+        StateHasChanged();
+    }
+
+    private async Task HandleRegistration()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            var user = new ApplicationUser
+            {
+                UserName = RegisterModel.Email,
+                Email = RegisterModel.Email,
+                FirstName = RegisterModel.FirstName,
+                LastName = RegisterModel.LastName,
+                PhoneNumber = RegisterModel.PhoneNumber,
+                Address = RegisterModel.Address,
+                City = RegisterModel.City,
+                State = RegisterModel.State,
+                ZipCode = RegisterModel.ZipCode,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await UserManager.CreateAsync(user, RegisterModel.Password);
+
+            if (result.Succeeded)
+            {
+                // Assign default customer role
+                await UserManager.AddToRoleAsync(user, "Customer");
+
+                // Create subscription record with the selected plan
+                if (SelectedPlan != null)
+                {
+                    await SubscriptionService.CreateSubscriptionAsync(user.Id, SelectedPlan.Id, "monthly");
+                }
+
+                // Sign in the user
+                await SignInManager.SignInAsync(user, isPersistent: false);
+
+                // Redirect to onboarding or dashboard
+                Navigation.NavigateTo("/dashboard/welcome");
+            }
+            else
+            {
+                ErrorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "An error occurred during registration. Please try again.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    public class RegisterViewModel
+    {
+        [Required] public string FirstName { get; set; } = string.Empty;
+        [Required] public string LastName { get; set; } = string.Empty;
+        [Required, EmailAddress] public string Email { get; set; } = string.Empty;
+        [Phone] public string PhoneNumber { get; set; } = string.Empty;
+        [Required] public string Address { get; set; } = string.Empty;
+        [Required] public string City { get; set; } = string.Empty;
+        [Required] public string State { get; set; } = string.Empty;
+        [Required] public string ZipCode { get; set; } = string.Empty;
+        [Required, MinLength(6)] public string Password { get; set; } = string.Empty;
+        [Required, Compare(nameof(Password))] public string ConfirmPassword { get; set; } = string.Empty;
+        [Range(typeof(bool), "true", "true", ErrorMessage = "You must agree to the terms")] 
+        public bool AgreeToTerms { get; set; }
+    }
+}

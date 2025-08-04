@@ -1,0 +1,403 @@
+@page "/manager/dashboard"
+@layout DashboardLayout
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using BinBuddies.Models
+@using BinBuddies.Services
+@attribute [Authorize(Roles = "Manager")]
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ISubscriptionService SubscriptionService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Manager Dashboard - Bin Buddies</PageTitle>
+
+<div class="container-fluid">
+    <!-- Manager Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h2">Manager Dashboard 📊</h1>
+            <p class="text-muted">Operations overview and business metrics</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="btn-group">
+                <button class="btn btn-primary" @onclick="ExportReports">
+                    <span class="oi oi-data-transfer-download me-1"></span> Export Reports
+                </button>
+                <button class="btn btn-outline-primary" @onclick="RefreshData">
+                    <span class="oi oi-loop-circular me-1"></span> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Metrics Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@TotalActiveCustomers</h4>
+                            <small>Active Customers</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-people display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">$@MonthlyRevenue.ToString("N0")</h4>
+                            <small>Monthly Revenue</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-dollar display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@TodaysServices</h4>
+                            <small>Today's Services</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-calendar display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@OverallCompletionRate%</h4>
+                            <small>Completion Rate</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-target display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Today's Operations -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Today's Operations</h5>
+                    <span class="badge bg-primary">@TodaysServices services scheduled</span>
+                </div>
+                <div class="card-body">
+                    @if (TodaysServiceRequests.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Customer</th>
+                                        <th>Employee</th>
+                                        <th>Service</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var service in TodaysServiceRequests.Take(10))
+                                    {
+                                        <tr>
+                                            <td>@(service.ScheduledDate?.ToString("h:mm tt") ?? "TBD")</td>
+                                            <td>
+                                                <small>
+                                                    @service.User?.FirstName @service.User?.LastName
+                                                    <br>@service.User?.Address
+                                                </small>
+                                            </td>
+                                            <td>
+                                                @if (service.AssignedEmployee != null)
+                                                {
+                                                    <small>@service.AssignedEmployee.FirstName @service.AssignedEmployee.LastName</small>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => AssignEmployee(service.Id)">
+                                                        Assign
+                                                    </button>
+                                                }
+                                            </td>
+                                            <td>
+                                                <span class="badge @(service.ServiceType == "Take Out" ? "bg-danger" : "bg-primary")">
+                                                    @service.ServiceType
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetStatusBadgeClass(service.Status)">
+                                                    @service.Status
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <button class="btn btn-outline-info" @onclick="() => ViewServiceDetails(service)">
+                                                        <span class="oi oi-eye"></span>
+                                                    </button>
+                                                    <button class="btn btn-outline-primary" @onclick="() => EditService(service)">
+                                                        <span class="oi oi-pencil"></span>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        @if (TodaysServiceRequests.Count > 10)
+                        {
+                            <div class="text-center mt-3">
+                                <button class="btn btn-outline-primary" @onclick="ViewAllServices">
+                                    View All @TodaysServiceRequests.Count Services
+                                </button>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <span class="oi oi-calendar text-muted display-6 mb-3 d-block"></span>
+                            <p class="text-muted">No services scheduled for today.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions & Analytics -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" @onclick="AddNewCustomer">
+                            <span class="oi oi-plus me-1"></span> Add Customer
+                        </button>
+                        <button class="btn btn-success" @onclick="ScheduleService">
+                            <span class="oi oi-calendar me-1"></span> Schedule Service
+                        </button>
+                        <button class="btn btn-info" @onclick="ManageEmployees">
+                            <span class="oi oi-people me-1"></span> Manage Employees
+                        </button>
+                        <button class="btn btn-warning" @onclick="ViewReports">
+                            <span class="oi oi-bar-chart me-1"></span> View Reports
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="SystemSettings">
+                            <span class="oi oi-cog me-1"></span> Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revenue Breakdown -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Revenue Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <small>Basic Plans</small>
+                            <small class="fw-bold">$@BasicPlanRevenue.ToString("N0")</small>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-primary" style="width: @BasicPlanPercentage%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <small>Premium Plans</small>
+                            <small class="fw-bold">$@PremiumPlanRevenue.ToString("N0")</small>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-success" style="width: @PremiumPlanPercentage%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <small>Business Plans</small>
+                            <small class="fw-bold">$@BusinessPlanRevenue.ToString("N0")</small>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-warning" style="width: @BusinessPlanPercentage%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">System Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Service Availability</span>
+                        <span class="badge bg-success">100%</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Employee Utilization</span>
+                        <span class="badge bg-info">@EmployeeUtilization%</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Customer Satisfaction</span>
+                        <span class="badge bg-success">4.8/5.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationUser? CurrentUser;
+    private List<ServiceRequest> TodaysServiceRequests = new();
+    private int TotalActiveCustomers = 0;
+    private decimal MonthlyRevenue = 0;
+    private int TodaysServices = 0;
+    private int CompletedToday = 0;
+    private int OverallCompletionRate = 0;
+    private int EmployeeUtilization = 85;
+
+    // Revenue breakdown (placeholder data)
+    private decimal BasicPlanRevenue = 15000;
+    private decimal PremiumPlanRevenue = 35000;
+    private decimal BusinessPlanRevenue = 25000;
+    private int BasicPlanPercentage = 20;
+    private int PremiumPlanPercentage = 47;
+    private int BusinessPlanPercentage = 33;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserData();
+        await LoadDashboardData();
+    }
+
+    private async Task LoadUserData()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            CurrentUser = await UserManager.GetUserAsync(authState.User);
+        }
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            var dashboardData = await SubscriptionService.GetManagerDashboardDataAsync();
+            
+            TotalActiveCustomers = (int)dashboardData["totalActiveCustomers"];
+            TodaysServices = (int)dashboardData["todaysServices"];
+            CompletedToday = (int)dashboardData["completedToday"];
+            MonthlyRevenue = (decimal)dashboardData["monthlyRevenue"];
+            OverallCompletionRate = (int)(double)dashboardData["completionRate"];
+
+            TodaysServiceRequests = await SubscriptionService.GetAllServiceRequestsAsync(
+                DateTime.Today, DateTime.Today.AddDays(1));
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"Error loading dashboard data: {ex.Message}");
+        }
+    }
+
+    private string GetStatusBadgeClass(ServiceRequestStatus status)
+    {
+        return status switch
+        {
+            ServiceRequestStatus.Completed => "bg-success",
+            ServiceRequestStatus.Assigned => "bg-primary",
+            ServiceRequestStatus.InProgress => "bg-warning",
+            ServiceRequestStatus.Cancelled => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadDashboardData();
+        StateHasChanged();
+    }
+
+    private async Task AssignEmployee(int serviceId)
+    {
+        // Placeholder - would show employee selection modal
+        await JSRuntime.InvokeVoidAsync("alert", "Employee assignment - To be implemented");
+    }
+
+    private async Task ViewServiceDetails(ServiceRequest service)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", 
+            $"Service Details:\nCustomer: {service.User?.FirstName} {service.User?.LastName}\nService: {service.ServiceType}\nScheduled: {service.ScheduledDate:g}");
+    }
+
+    private async Task EditService(ServiceRequest service)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Edit service - To be implemented");
+    }
+
+    private async Task ViewAllServices()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Navigate to full services view - To be implemented");
+    }
+
+    private async Task AddNewCustomer()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Add new customer - To be implemented");
+    }
+
+    private async Task ScheduleService()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Schedule service - To be implemented");
+    }
+
+    private async Task ManageEmployees()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Manage employees - To be implemented");
+    }
+
+    private async Task ViewReports()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "View reports - To be implemented");
+    }
+
+    private async Task SystemSettings()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "System settings - To be implemented");
+    }
+
+    private async Task ExportReports()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Export reports - To be implemented");
+    }
+}

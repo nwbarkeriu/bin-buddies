@@ -1,0 +1,292 @@
+@page "/dashboard"
+@page "/dashboard/welcome"
+@layout DashboardLayout
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using BinBuddies.Models
+@using BinBuddies.Services
+@attribute [Authorize(Roles = "Customer")]
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ISubscriptionService SubscriptionService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>My Dashboard - Bin Buddies</PageTitle>
+
+<div class="container-fluid">
+    <!-- Welcome Banner -->
+    @if (IsWelcome)
+    {
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <h4 class="alert-heading">🎉 Welcome to Bin Buddies!</h4>
+                    <p>Your account has been created successfully. Your 30-day free trial starts now!</p>
+                    <hr>
+                    <p class="mb-0">We'll send you a welcome email with next steps and schedule your first service.</p>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Dashboard Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h2">Hello, @CurrentUser?.FirstName! 👋</h1>
+            <p class="text-muted">Here's your bin service overview</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="btn-group">
+                <button class="btn btn-primary" @onclick="RequestService">
+                    <span class="oi oi-plus me-1"></span> Request Service
+                </button>
+                <button class="btn btn-outline-primary" @onclick="ContactSupport">
+                    <span class="oi oi-phone me-1"></span> Support
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@ActiveSubscription?.Status</h4>
+                            <small>Subscription Status</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-check display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@CompletedServices</h4>
+                            <small>Services This Month</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-trash display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@NextServiceDate?.ToString("MMM dd")</h4>
+                            <small>Next Service</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-calendar display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">$@(ActiveSubscription?.MonthlyPrice ?? 0)</h4>
+                            <small>Monthly Plan</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-dollar display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Upcoming Services -->
+        <div class="col-lg-8 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Upcoming Services</h5>
+                    <a href="/dashboard/services" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    @if (UpcomingServices.Any())
+                    {
+                        @foreach (var service in UpcomingServices.Take(5))
+                        {
+                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                <div>
+                                    <strong>@service.ServiceType</strong>
+                                    <br>
+                                    <small class="text-muted">@service.ScheduledDate?.ToString("dddd, MMMM dd, yyyy")</small>
+                                </div>
+                                <div>
+                                    <span class="badge bg-@GetStatusColor(service.Status)">@service.Status</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <span class="oi oi-info text-muted display-6 mb-3 d-block"></span>
+                            <p class="text-muted">No upcoming services scheduled.</p>
+                            <button class="btn btn-primary" @onclick="RequestService">Schedule a Service</button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Summary -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Account Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Current Plan:</strong><br>
+                        <span class="text-primary">@(ActiveSubscription?.PlanName ?? "No active plan")</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Next Billing:</strong><br>
+                        @(ActiveSubscription?.NextBillingDate.ToString("MMMM dd, yyyy") ?? "N/A")
+                    </div>
+                    <div class="mb-3">
+                        <strong>Service Address:</strong><br>
+                        <small>@CurrentUser?.Address<br>@CurrentUser?.City, @CurrentUser?.State @CurrentUser?.ZipCode</small>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a href="/dashboard/billing" class="btn btn-outline-primary btn-sm">Manage Billing</a>
+                        <a href="/dashboard/profile" class="btn btn-outline-secondary btn-sm">Edit Profile</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-success btn-sm" @onclick="RequestService">
+                            <span class="oi oi-plus me-1"></span> Request Service
+                        </button>
+                        <button class="btn btn-info btn-sm" @onclick="ViewServiceHistory">
+                            <span class="oi oi-list me-1"></span> Service History
+                        </button>
+                        <button class="btn btn-warning btn-sm" @onclick="ReportIssue">
+                            <span class="oi oi-warning me-1"></span> Report Issue
+                        </button>
+                        <button class="btn btn-secondary btn-sm" @onclick="ContactSupport">
+                            <span class="oi oi-phone me-1"></span> Contact Support
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public bool IsWelcome { get; set; }
+
+    private ApplicationUser? CurrentUser;
+    private Subscription? ActiveSubscription;
+    private List<ServiceRequest> UpcomingServices = new();
+    private int CompletedServices = 0;
+    private DateTime? NextServiceDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserData();
+        await LoadDashboardData();
+    }
+
+    private async Task LoadUserData()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            CurrentUser = await UserManager.GetUserAsync(authState.User);
+        }
+    }
+
+    private async Task LoadDashboardData()
+    {
+        if (CurrentUser != null)
+        {
+            try
+            {
+                // Load subscription data
+                ActiveSubscription = await SubscriptionService.GetActiveSubscriptionAsync(CurrentUser.Id);
+                
+                // Load upcoming services
+                UpcomingServices = await SubscriptionService.GetUpcomingServicesAsync(CurrentUser.Id);
+                
+                // Calculate completed services this month
+                CompletedServices = await SubscriptionService.GetCompletedServicesCountAsync(CurrentUser.Id, DateTime.Now.Month);
+                
+                // Get next service date
+                NextServiceDate = UpcomingServices.FirstOrDefault()?.ScheduledDate;
+            }
+            catch (Exception ex)
+            {
+                // Handle error gracefully
+                await JSRuntime.InvokeVoidAsync("console.error", $"Error loading dashboard data: {ex.Message}");
+            }
+        }
+    }
+
+    private string GetStatusColor(ServiceRequestStatus status)
+    {
+        return status switch
+        {
+            ServiceRequestStatus.Pending => "warning",
+            ServiceRequestStatus.Scheduled => "info",
+            ServiceRequestStatus.InProgress => "primary",
+            ServiceRequestStatus.Completed => "success",
+            ServiceRequestStatus.Cancelled => "secondary",
+            _ => "secondary"
+        };
+    }
+
+    private async Task RequestService()
+    {
+        // Navigate to service request page
+        await JSRuntime.InvokeVoidAsync("window.location.href", "/dashboard/request-service");
+    }
+
+    private async Task ViewServiceHistory()
+    {
+        await JSRuntime.InvokeVoidAsync("window.location.href", "/dashboard/services");
+    }
+
+    private async Task ReportIssue()
+    {
+        await JSRuntime.InvokeVoidAsync("window.location.href", "/dashboard/support");
+    }
+
+    private async Task ContactSupport()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Support Contact:\n\nPhone: (555) 123-4567\nEmail: support@binbuddies.com\n\nOr use the chat widget in the bottom right corner!");
+    }
+}

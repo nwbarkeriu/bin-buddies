@@ -1,5 +1,8 @@
-﻿@page "/"
+﻿@page "/admin"
+@page "/admin/dashboard"
 @using BinBuddies.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Manager,Employee")]
 @inject ITodoService TodoService
 @inject ICustomerService CustomerService
 

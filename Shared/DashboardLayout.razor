@@ -1,0 +1,80 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using BinBuddies.Models
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="page">
+    <div class="sidebar">
+        <DashboardNavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4 auth">
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <div>
+                    <h4 class="text-primary mb-0">
+                        <span class="oi oi-trash me-2"></span>Bin Buddies
+                    </h4>
+                </div>
+                <div class="d-flex align-items-center">
+                    <AuthorizeView>
+                        <Authorized>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                    <span class="oi oi-person me-1"></span>
+                                    @CurrentUser?.FirstName @CurrentUser?.LastName
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="/dashboard/profile">
+                                        <span class="oi oi-person me-2"></span>Profile
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="/dashboard/billing">
+                                        <span class="oi oi-credit-card me-2"></span>Billing
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="/dashboard/settings">
+                                        <span class="oi oi-cog me-2"></span>Settings
+                                    </a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><button class="dropdown-item" @onclick="HandleLogout">
+                                        <span class="oi oi-account-logout me-2"></span>Sign Out
+                                    </button></li>
+                                </ul>
+                            </div>
+                        </Authorized>
+                        <NotAuthorized>
+                            <a href="/login" class="btn btn-primary">Sign In</a>
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </div>
+            </div>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private ApplicationUser? CurrentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            CurrentUser = await UserManager.GetUserAsync(authState.User);
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        await SignInManager.SignOutAsync();
+        Navigation.NavigateTo("/home", forceLoad: true);
+    }
+}

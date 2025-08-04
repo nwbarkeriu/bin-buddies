@@ -1,0 +1,147 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Identity
+@using BinBuddies.Models
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject UserManager<ApplicationUser> UserManager
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/dashboard">
+            <span class="oi oi-trash me-2"></span>Bin Buddies
+        </a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <!-- Customer Navigation -->
+        <AuthorizeView Roles="Customer">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/dashboard" Match="NavLinkMatch.All">
+                    <span class="oi oi-home" aria-hidden="true"></span> Dashboard
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/dashboard/services">
+                    <span class="oi oi-list-rich" aria-hidden="true"></span> My Services
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/dashboard/request-service">
+                    <span class="oi oi-plus" aria-hidden="true"></span> Request Service
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/dashboard/billing">
+                    <span class="oi oi-credit-card" aria-hidden="true"></span> Billing
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/dashboard/support">
+                    <span class="oi oi-phone" aria-hidden="true"></span> Support
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Employee Navigation -->
+        <AuthorizeView Roles="Employee,Manager">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/employee/dashboard">
+                    <span class="oi oi-dashboard" aria-hidden="true"></span> Employee Dashboard
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/employee/routes">
+                    <span class="oi oi-map" aria-hidden="true"></span> My Routes
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/todo">
+                    <span class="oi oi-list" aria-hidden="true"></span> Todo List
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/events">
+                    <span class="oi oi-calendar" aria-hidden="true"></span> Events
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Manager Navigation -->
+        <AuthorizeView Roles="Manager">
+            <div class="nav-item px-3">
+                <hr class="text-muted">
+            </div>
+            <div class="nav-item px-3">
+                <small class="text-muted px-3">MANAGEMENT</small>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/admin/dashboard">
+                    <span class="oi oi-pie-chart" aria-hidden="true"></span> Admin Dashboard
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/customers">
+                    <span class="oi oi-people" aria-hidden="true"></span> Customers
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/admin/employees">
+                    <span class="oi oi-briefcase" aria-hidden="true"></span> Employees
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/admin/subscriptions">
+                    <span class="oi oi-dollar" aria-hidden="true"></span> Subscriptions
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/admin/reports">
+                    <span class="oi oi-bar-chart" aria-hidden="true"></span> Reports
+                </NavLink>
+            </div>
+        </AuthorizeView>
+
+        <!-- Quick Links -->
+        <div class="nav-item px-3">
+            <hr class="text-muted">
+        </div>
+        <div class="nav-item px-3">
+            <small class="text-muted px-3">QUICK LINKS</small>
+        </div>
+        <div class="nav-item px-3">
+            <a class="nav-link" href="/mobile" target="_blank">
+                <span class="oi oi-phone" aria-hidden="true"></span> Mobile View
+            </a>
+        </div>
+        <div class="nav-item px-3">
+            <a class="nav-link" href="/home" target="_blank">
+                <span class="oi oi-external-link" aria-hidden="true"></span> Public Site
+            </a>
+        </div>
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+    private ApplicationUser? CurrentUser;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            CurrentUser = await UserManager.GetUserAsync(authState.User);
+        }
+    }
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}

@@ -1,0 +1,353 @@
+@page "/employee/dashboard"
+@layout DashboardLayout
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using BinBuddies.Models
+@using BinBuddies.Services
+@attribute [Authorize(Roles = "Employee,Manager")]
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ISubscriptionService SubscriptionService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Employee Dashboard - Bin Buddies</PageTitle>
+
+<div class="container-fluid">
+    <!-- Employee Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="h2">Welcome, @CurrentUser?.FirstName! 👋</h1>
+            <p class="text-muted">Today's service assignments and route overview</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="btn-group">
+                <button class="btn btn-success" @onclick="CompleteAllServices">
+                    <span class="oi oi-check me-1"></span> Complete All
+                </button>
+                <button class="btn btn-outline-primary" @onclick="RefreshData">
+                    <span class="oi oi-loop-circular me-1"></span> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@TodaysAssignments.Count</h4>
+                            <small>Today's Assignments</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-calendar display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@CompletedToday</h4>
+                            <small>Completed Today</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-check display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@PendingCount</h4>
+                            <small>Pending Services</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-clock display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h4 class="mb-0">@CompletionRate%</h4>
+                            <small>Completion Rate</small>
+                        </div>
+                        <div class="align-self-center">
+                            <span class="oi oi-target display-6"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Route -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <span class="oi oi-map me-2"></span>Today's Route - @DateTime.Now.ToString("MMMM dd, yyyy")
+                    </h5>
+                    <span class="badge bg-primary">@TodaysAssignments.Count services</span>
+                </div>
+                <div class="card-body">
+                    @if (TodaysAssignments.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Customer</th>
+                                        <th>Address</th>
+                                        <th>Service Type</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var service in TodaysAssignments.OrderBy(s => s.ScheduledDate))
+                                    {
+                                        <tr class="@(service.Status == ServiceRequestStatus.Completed ? "table-success" : "")">
+                                            <td>
+                                                <span class="fw-bold">@(service.ScheduledDate?.ToString("h:mm tt") ?? "TBD")</span>
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    <strong>@service.User?.FirstName @service.User?.LastName</strong>
+                                                    <br><small class="text-muted">@service.User?.PhoneNumber</small>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    @service.User?.Address<br>
+                                                    @service.User?.City, @service.User?.State @service.User?.ZipCode
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <span class="badge @(service.ServiceType == "Take Out" ? "bg-danger" : "bg-primary")">
+                                                    @service.ServiceType
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="badge @GetStatusBadgeClass(service.Status)">
+                                                    @service.Status
+                                                </span>
+                                            </td>
+                                            <td>
+                                                @if (service.Status != ServiceRequestStatus.Completed)
+                                                {
+                                                    <button class="btn btn-sm btn-success me-1" 
+                                                            @onclick="() => CompleteService(service.Id)">
+                                                        <span class="oi oi-check me-1"></span>Complete
+                                                    </button>
+                                                }
+                                                <button class="btn btn-sm btn-outline-info" 
+                                                        @onclick="() => ViewServiceDetails(service)">
+                                                    <span class="oi oi-eye me-1"></span>Details
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <span class="oi oi-check text-success display-4 mb-3 d-block"></span>
+                            <h5>No services assigned for today</h5>
+                            <p class="text-muted">Check back later or contact your manager for assignments.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Summary -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">This Week's Performance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="h3 text-primary">@WeeklyCompleted</div>
+                            <small class="text-muted">Services Completed</small>
+                        </div>
+                        <div class="col-6">
+                            <div class="h3 text-success">@WeeklyCompletionRate%</div>
+                            <small class="text-muted">Weekly Completion Rate</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary" @onclick="ViewAllAssignments">
+                            <span class="oi oi-calendar me-1"></span> View All Assignments
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="ReportIssue">
+                            <span class="oi oi-warning me-1"></span> Report Issue
+                        </button>
+                        <button class="btn btn-outline-info" @onclick="ViewTrainingMaterials">
+                            <span class="oi oi-book me-1"></span> Training Materials
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private ApplicationUser? CurrentUser;
+    private List<ServiceRequest> TodaysAssignments = new();
+    private int CompletedToday = 0;
+    private int PendingCount = 0;
+    private int CompletionRate = 0;
+    private int WeeklyCompleted = 0;
+    private int WeeklyCompletionRate = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUserData();
+        await LoadDashboardData();
+    }
+
+    private async Task LoadUserData()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            CurrentUser = await UserManager.GetUserAsync(authState.User);
+        }
+    }
+
+    private async Task LoadDashboardData()
+    {
+        if (CurrentUser != null)
+        {
+            try
+            {
+                TodaysAssignments = await SubscriptionService.GetAssignedServicesAsync(CurrentUser.Id, DateTime.Today);
+                CompletedToday = TodaysAssignments.Count(s => s.Status == ServiceRequestStatus.Completed);
+                PendingCount = TodaysAssignments.Count(s => s.Status != ServiceRequestStatus.Completed);
+                CompletionRate = TodaysAssignments.Count > 0 ? (CompletedToday * 100 / TodaysAssignments.Count) : 0;
+
+                // Calculate weekly stats (placeholder - would implement proper weekly calculation)
+                WeeklyCompleted = CompletedToday * 5; // Simulate weekly data
+                WeeklyCompletionRate = CompletionRate;
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("console.error", $"Error loading dashboard data: {ex.Message}");
+            }
+        }
+    }
+
+    private string GetStatusBadgeClass(ServiceRequestStatus status)
+    {
+        return status switch
+        {
+            ServiceRequestStatus.Completed => "bg-success",
+            ServiceRequestStatus.Assigned => "bg-primary",
+            ServiceRequestStatus.InProgress => "bg-warning",
+            ServiceRequestStatus.Cancelled => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    private async Task CompleteService(int serviceId)
+    {
+        try
+        {
+            var success = await SubscriptionService.CompleteServiceAsync(serviceId, "Completed by employee");
+            if (success)
+            {
+                await LoadDashboardData();
+                await JSRuntime.InvokeVoidAsync("alert", "Service marked as completed!");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to complete service.");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error: {ex.Message}");
+        }
+    }
+
+    private async Task CompleteAllServices()
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            "Are you sure you want to mark all pending services as completed?");
+        
+        if (confirmed)
+        {
+            var pendingServices = TodaysAssignments.Where(s => s.Status != ServiceRequestStatus.Completed);
+            foreach (var service in pendingServices)
+            {
+                await SubscriptionService.CompleteServiceAsync(service.Id, "Bulk completed by employee");
+            }
+            await LoadDashboardData();
+            await JSRuntime.InvokeVoidAsync("alert", "All services marked as completed!");
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadDashboardData();
+        StateHasChanged();
+    }
+
+    private async Task ViewServiceDetails(ServiceRequest service)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", 
+            $"Service Details:\nCustomer: {service.User?.FirstName} {service.User?.LastName}\nAddress: {service.User?.Address}\nService Type: {service.ServiceType}\nScheduled: {service.ScheduledDate:g}");
+    }
+
+    private async Task ViewAllAssignments()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Navigate to full assignments view - To be implemented");
+    }
+
+    private async Task ReportIssue()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Report issue functionality - To be implemented");
+    }
+
+    private async Task ViewTrainingMaterials()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Training materials - To be implemented");
+    }
+}

@@ -1,0 +1,168 @@
+@page "/login"
+@layout LandingLayout
+@using Microsoft.AspNetCore.Identity
+@using BinBuddies.Models
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Sign In - Bin Buddies</PageTitle>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <h2 class="h3 mb-3">Welcome Back</h2>
+                        <p class="text-muted">Sign in to your Bin Buddies account</p>
+                    </div>
+
+                    <EditForm Model="@LoginModel" OnValidSubmit="@HandleLogin">
+                        <DataAnnotationsValidator />
+                        
+                        @if (!string.IsNullOrEmpty(ErrorMessage))
+                        {
+                            <div class="alert alert-danger" role="alert">
+                                @ErrorMessage
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address</label>
+                            <InputText @bind-Value="LoginModel.Email" class="form-control" id="email" placeholder="Enter your email" />
+                            <ValidationMessage For="@(() => LoginModel.Email)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <InputText type="password" @bind-Value="LoginModel.Password" class="form-control" id="password" placeholder="Enter your password" />
+                            <ValidationMessage For="@(() => LoginModel.Password)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <InputCheckbox @bind-Value="LoginModel.RememberMe" class="form-check-input" id="rememberMe" />
+                            <label class="form-check-label" for="rememberMe">
+                                Remember me
+                            </label>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg" disabled="@IsLoading">
+                                @if (IsLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                }
+                                Sign In
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <div class="text-center mt-4">
+                        <a href="/forgot-password" class="text-decoration-none">Forgot your password?</a>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <p class="text-muted mb-3">Don't have an account?</p>
+                        <a href="/register" class="btn btn-outline-primary">Create Account</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Role-based Login Info -->
+            <div class="card mt-4 border-0 bg-light">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Login as:</h6>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <span class="oi oi-people d-block text-primary mb-1"></span>
+                            <small class="text-muted">Customer</small>
+                        </div>
+                        <div class="col-4">
+                            <span class="oi oi-briefcase d-block text-success mb-1"></span>
+                            <small class="text-muted">Employee</small>
+                        </div>
+                        <div class="col-4">
+                            <span class="oi oi-star d-block text-warning mb-1"></span>
+                            <small class="text-muted">Manager</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginViewModel LoginModel = new();
+    private string ErrorMessage = string.Empty;
+    private bool IsLoading = false;
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    public class LoginViewModel
+    {
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email format")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Password is required")]
+        public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; }
+    }
+
+    private async Task HandleLogin()
+    {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
+        try
+        {
+            var result = await SignInManager.PasswordSignInAsync(
+                LoginModel.Email, 
+                LoginModel.Password, 
+                LoginModel.RememberMe, 
+                lockoutOnFailure: true);
+
+            if (result.Succeeded)
+            {
+                // Redirect based on user role
+                var redirectUrl = await DetermineRedirectUrl();
+                Navigation.NavigateTo(redirectUrl, forceLoad: true);
+            }
+            else if (result.IsLockedOut)
+            {
+                ErrorMessage = "Account is locked due to multiple failed login attempts.";
+            }
+            else if (result.RequiresTwoFactor)
+            {
+                Navigation.NavigateTo($"/login-2fa?returnUrl={ReturnUrl}");
+            }
+            else
+            {
+                ErrorMessage = "Invalid email or password.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "An error occurred during login. Please try again.";
+            // Log the exception
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task<string> DetermineRedirectUrl()
+    {
+        // This would check user roles and redirect appropriately
+        // For now, redirect to dashboard
+        return !string.IsNullOrEmpty(ReturnUrl) ? ReturnUrl : "/dashboard";
+    }
+}

@@ -1,0 +1,137 @@
+@inherits LayoutComponentBase
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bin Buddies - Premium Trash Management Service</title>
+    <base href="~/" />
+    <link href="lib/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/open-iconic/font/css/open-iconic-bootstrap.min.css" rel="stylesheet" />
+    <link href="css/site.css" rel="stylesheet" />
+    <link href="BinBuddies.styles.css" rel="stylesheet" />
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        }
+        .feature-icon {
+            transition: transform 0.3s ease;
+        }
+        .feature-icon:hover {
+            transform: scale(1.1);
+        }
+        .navbar-brand {
+            font-weight: bold;
+            font-size: 1.5rem;
+        }
+        .btn-cta {
+            padding: 12px 30px;
+            font-weight: 600;
+            border-radius: 50px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
+        <div class="container">
+            <a class="navbar-brand text-primary" href="/">
+                <span class="oi oi-trash me-2"></span>Bin Buddies
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#how-it-works">How It Works</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pricing">Pricing</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#testimonials">Reviews</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/contact">Contact</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <a href="/login" class="btn btn-outline-primary me-2">Sign In</a>
+                    <a href="/register" class="btn btn-primary btn-cta">Start Free Trial</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main style="padding-top: 76px;">
+        @Body
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-5 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <h5 class="text-primary">
+                        <span class="oi oi-trash me-2"></span>Bin Buddies
+                    </h5>
+                    <p class="text-muted">
+                        Professional trash bin management service that makes your life easier. 
+                        Reliable, affordable, and convenient.
+                    </p>
+                </div>
+                <div class="col-lg-2 col-6 mb-4">
+                    <h6>Services</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="/pricing" class="text-muted text-decoration-none">Residential</a></li>
+                        <li><a href="/pricing" class="text-muted text-decoration-none">Commercial</a></li>
+                        <li><a href="/pricing" class="text-muted text-decoration-none">One-time Service</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-6 mb-4">
+                    <h6>Company</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="/about" class="text-muted text-decoration-none">About Us</a></li>
+                        <li><a href="/contact" class="text-muted text-decoration-none">Contact</a></li>
+                        <li><a href="/careers" class="text-muted text-decoration-none">Careers</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-6 mb-4">
+                    <h6>Support</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="/help" class="text-muted text-decoration-none">Help Center</a></li>
+                        <li><a href="/privacy" class="text-muted text-decoration-none">Privacy Policy</a></li>
+                        <li><a href="/terms" class="text-muted text-decoration-none">Terms of Service</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-2 col-6 mb-4">
+                    <h6>Connect</h6>
+                    <div class="d-flex">
+                        <a href="#" class="text-muted me-3"><span class="oi oi-social-facebook"></span></a>
+                        <a href="#" class="text-muted me-3"><span class="oi oi-social-twitter"></span></a>
+                        <a href="#" class="text-muted"><span class="oi oi-envelope-closed"></span></a>
+                    </div>
+                </div>
+            </div>
+            <hr class="my-4">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <p class="text-muted mb-0">&copy; 2025 Bin Buddies. All rights reserved.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="text-muted mb-0">Made with ❤️ for busy people everywhere</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="lib/jquery/dist/jquery.min.js"></script>
+    <script src="lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/site.js"></script>
+</body>
+</html>
