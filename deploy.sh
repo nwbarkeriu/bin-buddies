@@ -26,16 +26,16 @@ echo "🗄️ Setting up SQL Server..."
 
 # Create application directory
 echo "📁 Creating application directory..."
-mkdir -p /var/www/binbuddies
-cd /var/www/binbuddies
+mkdir -p /var/www/bin-buddies
+cd /var/www/bin-buddies
 
 # Clone or copy application files here
-echo "📥 Application files should be copied to /var/www/binbuddies"
+echo "📥 Application files should be copied to /var/www/bin-buddies"
 
 # Set permissions
 echo "🔐 Setting permissions..."
-chown -R www-data:www-data /var/www/binbuddies
-chmod -R 755 /var/www/binbuddies
+chown -R www-data:www-data /var/www/bin-buddies
+chmod -R 755 /var/www/bin-buddies
 
 # Create systemd service
 echo "⚙️ Creating systemd service..."
@@ -46,7 +46,7 @@ After=network.target
 
 [Service]
 Type=notify
-ExecStart=/usr/bin/dotnet /var/www/binbuddies/BinBuddies.dll
+ExecStart=/usr/bin/dotnet /var/www/bin-buddies/BinBuddies.dll
 Restart=always
 RestartSec=10
 KillSignal=SIGINT
@@ -54,7 +54,7 @@ SyslogIdentifier=binbuddies
 User=www-data
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://localhost:5000
-WorkingDirectory=/var/www/binbuddies
+WorkingDirectory=/var/www/bin-buddies
 
 [Install]
 WantedBy=multi-user.target
@@ -100,7 +100,7 @@ systemctl restart nginx
 
 echo "✅ Deployment script complete!"
 echo "📋 Next steps:"
-echo "1. Copy your application files to /var/www/binbuddies"
+echo "1. Copy your application files to /var/www/bin-buddies"
 echo "2. Update database connection string in appsettings.Production.json"
 echo "3. Run database migrations"
 echo "4. Start the application: systemctl start binbuddies"
