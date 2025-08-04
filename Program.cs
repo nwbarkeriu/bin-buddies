@@ -10,9 +10,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-// Add Entity Framework
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Add Entity Framework with database provider selection
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (connectionString.Contains("Host=") || connectionString.Contains("Server=localhost") && connectionString.Contains("Username="))
+{
+    // PostgreSQL
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseNpgsql(connectionString));
+}
+else
+{
+    // SQL Server
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseSqlServer(connectionString));
+}
 
 // Add custom services
 builder.Services.AddScoped<ICustomerService, CustomerService>();
