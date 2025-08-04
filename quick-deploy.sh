@@ -45,7 +45,8 @@ EOF
 
 # Clone repository
 echo "📥 Cloning repository..."
-cd /tmp
+mkdir -p /opt/binbuddies-source
+cd /opt/binbuddies-source
 rm -rf bin-buddies
 git clone https://github.com/nwbarkeriu/bin-buddies.git
 cd bin-buddies
