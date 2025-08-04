@@ -11,26 +11,63 @@ apt update && apt upgrade -y
 echo "🔧 Installing required packages..."
 apt install -y nginx supervisor curl apt-transport-https
 
-# Install .NET 8 Runtime
-echo "⚡ Installing .NET 8 Runtime..."
+# Install .NET 8 SDK and Runtime (need SDK for EF migrations)
+echo "⚡ Installing .NET 8..."
 wget https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb
 dpkg -i packages-microsoft-prod.deb
 rm packages-microsoft-prod.deb
 apt update
-apt install -y aspnetcore-runtime-8.0
+apt install -y aspnetcore-runtime-8.0 dotnet-sdk-8.0
 
-# Install SQL Server (if not already installed)
-echo "🗄️ Setting up SQL Server..."
-# Note: For production, you might want to use PostgreSQL instead
-# apt install -y postgresql postgresql-contrib
+# Install EF Core tools globally
+echo "🔧 Installing Entity Framework tools..."
+dotnet tool install --global dotnet-ef
+
+# Install PostgreSQL instead of SQL Server
+echo "🗄️ Setting up PostgreSQL..."
+apt install -y postgresql postgresql-contrib
+
+# Start and enable PostgreSQL
+systemctl start postgresql
+systemctl enable postgresql
+
+# Setup database and user
+echo "� Setting up database..."
+sudo -u postgres psql << 'EOSQL'
+DROP DATABASE IF EXISTS binbuddiesdb;
+DROP USER IF EXISTS binbuddies_user;
+CREATE DATABASE binbuddiesdb;
+CREATE USER binbuddies_user WITH ENCRYPTED PASSWORD 'BinBuddies2024!SecurePass';
+GRANT ALL PRIVILEGES ON DATABASE binbuddiesdb TO binbuddies_user;
+ALTER USER binbuddies_user CREATEDB;
+\q
+EOSQL
+
+# Grant schema permissions
+sudo -u postgres psql -d binbuddiesdb -c 'GRANT ALL ON SCHEMA public TO binbuddies_user;'
+sudo -u postgres psql -d binbuddiesdb -c 'GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO binbuddies_user;'
+sudo -u postgres psql -d binbuddiesdb -c 'GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO binbuddies_user;'
 
 # Create application directory
 echo "📁 Creating application directory..."
 mkdir -p /var/www/bin-buddies
 cd /var/www/bin-buddies
 
-# Clone or copy application files here
-echo "📥 Application files should be copied to /var/www/bin-buddies"
+# Clone application from GitHub
+echo "📥 Cloning application from GitHub..."
+git clone https://github.com/nwbarkeriu/bin-buddies.git /var/www/bin-buddies
+
+# Build the application
+echo "� Building application..."
+cd /var/www/bin-buddies
+dotnet restore
+dotnet build --configuration Release
+
+# Run database migrations
+echo "🗄️ Running database migrations..."
+export PATH="$PATH:/root/.dotnet/tools"
+ASPNETCORE_ENVIRONMENT=Production dotnet ef migrations add InitialCreate --force 2>/dev/null || echo "Migrations already exist"
+ASPNETCORE_ENVIRONMENT=Production dotnet ef database update
 
 # Set permissions
 echo "🔐 Setting permissions..."
@@ -46,7 +83,7 @@ After=network.target
 
 [Service]
 Type=notify
-ExecStart=/usr/bin/dotnet /var/www/bin-buddies/BinBuddies.dll
+ExecStart=/usr/bin/dotnet /var/www/bin-buddies/bin/Release/net8.0/BinBuddies.dll
 Restart=always
 RestartSec=10
 KillSignal=SIGINT
@@ -97,11 +134,11 @@ systemctl daemon-reload
 systemctl enable binbuddies
 systemctl enable nginx
 systemctl restart nginx
+systemctl start binbuddies
 
-echo "✅ Deployment script complete!"
-echo "📋 Next steps:"
-echo "1. Copy your application files to /var/www/bin-buddies"
-echo "2. Update database connection string in appsettings.Production.json"
-echo "3. Run database migrations"
-echo "4. Start the application: systemctl start binbuddies"
-echo "5. Setup SSL certificate with Let's Encrypt"
+echo "✅ Deployment complete!"
+echo "🌐 Your application should be available at http://bin-buddies.site"
+echo "📋 Optional next steps:"
+echo "1. Setup SSL certificate with: certbot --nginx -d bin-buddies.site -d www.bin-buddies.site"
+echo "2. Check application status: systemctl status binbuddies"
+echo "3. View logs: journalctl -u binbuddies -f"
