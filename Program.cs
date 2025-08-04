@@ -32,12 +32,12 @@ builder.Services.AddScoped<DataSeederService>();
 
 var app = builder.Build();
 
-// Seed the database
-using (var scope = app.Services.CreateScope())
-{
-    var seeder = scope.ServiceProvider.GetRequiredService<DataSeederService>();
-    await seeder.SeedDataAsync();
-}
+// Seed the database - temporarily disabled due to DateTime timezone issues
+// using (var scope = app.Services.CreateScope())
+// {
+//     var seeder = scope.ServiceProvider.GetRequiredService<DataSeederService>();
+//     await seeder.SeedDataAsync();
+// }
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
