@@ -1,0 +1,25 @@
+﻿@inherits LayoutComponentBase
+
+<PageTitle>BinBuddies</PageTitle>
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="text-primary mb-0">Bin Buddies</h4>
+                <div class="d-flex align-items-center">
+                    <span class="oi oi-phone me-2 d-sm-none"></span>
+                    <small class="text-muted d-none d-sm-inline">Mobile Optimized</small>
+                </div>
+            </div>
+        </div>
+
+        <article class="content px-4 pb-4">
+            @Body
+        </article>
+    </main>
+</div>

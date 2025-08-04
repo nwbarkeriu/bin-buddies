@@ -1,0 +1,147 @@
+@page "/mobile"
+@using BinBuddies.Services
+@inject ITodoService TodoService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Bin Buddies Mobile</PageTitle>
+
+<div class="qr-landing">
+    <div class="container-fluid p-3">
+        <!-- Mobile Header -->
+        <div class="row mb-4">
+            <div class="col-12 text-center">
+                <div class="mobile-card card p-4">
+                    <h2 class="text-primary mb-2">
+                        <span class="oi oi-phone"></span> Bin Buddies
+                    </h2>
+                    <p class="text-muted mb-0">Mobile Service Portal</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="row mb-4">
+            <div class="col-6 mb-3">
+                <div class="mobile-card card bg-primary text-white text-center p-3">
+                    <h4 class="mb-1">@TodaysTasks</h4>
+                    <small>Today's Tasks</small>
+                </div>
+            </div>
+            <div class="col-6 mb-3">
+                <div class="mobile-card card bg-success text-white text-center p-3">
+                    <h4 class="mb-1">@CompletedToday</h4>
+                    <small>Completed</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h5 class="mb-3 text-center">Quick Actions</h5>
+            </div>
+            
+            <div class="col-12 mb-3">
+                <a href="/todo" class="btn btn-primary btn-lg w-100 py-3">
+                    <span class="oi oi-list me-2"></span>
+                    View Today's Tasks
+                </a>
+            </div>
+            
+            <div class="col-12 mb-3">
+                <a href="/customers" class="btn btn-success btn-lg w-100 py-3">
+                    <span class="oi oi-people me-2"></span>
+                    Customer Directory
+                </a>
+            </div>
+            
+            <div class="col-12 mb-3">
+                <a href="/events" class="btn btn-info btn-lg w-100 py-3">
+                    <span class="oi oi-calendar me-2"></span>
+                    All Events
+                </a>
+            </div>
+        </div>
+
+        <!-- Today's Priority Tasks -->
+        @if (UrgentTasks.Any())
+        {
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h5 class="mb-3 text-center text-danger">
+                        <span class="oi oi-warning"></span> Priority Tasks
+                    </h5>
+                    @foreach (var task in UrgentTasks.Take(3))
+                    {
+                        <div class="mobile-card card mb-2">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">@task.Customer?.FullName</h6>
+                                        <small class="text-muted">@task.EventDate.ToString("h:mm tt")</small>
+                                    </div>
+                                    <span class="badge @(task.EventType == "Take Out" ? "bg-danger" : "bg-primary")">
+                                        @task.EventType
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <!-- Service Info -->
+        <div class="row">
+            <div class="col-12">
+                <div class="mobile-card card border-0 bg-light">
+                    <div class="card-body text-center p-4">
+                        <h6 class="text-muted mb-2">Need Help?</h6>
+                        <p class="small mb-3">Contact your service representative for assistance</p>
+                        <button class="btn btn-outline-primary btn-sm" @onclick="ShowContactInfo">
+                            <span class="oi oi-phone"></span> Contact Support
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int TodaysTasks = 0;
+    private int CompletedToday = 0;
+    private List<BinBuddies.Models.EventLog> UrgentTasks = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMobileData();
+    }
+
+    private async Task LoadMobileData()
+    {
+        try
+        {
+            var allEvents = await TodoService.GetWeeklyEventsAsync();
+            var todaysEvents = allEvents.Where(e => e.EventDate.Date == DateTime.Today).ToList();
+            
+            TodaysTasks = todaysEvents.Count;
+            CompletedToday = todaysEvents.Count(e => e.Completed);
+            UrgentTasks = todaysEvents
+                .Where(e => !e.Completed && e.EventDate < DateTime.Now.AddHours(4))
+                .OrderBy(e => e.EventDate)
+                .ToList();
+        }
+        catch (Exception)
+        {
+            // Handle error gracefully for mobile users
+            TodaysTasks = 0;
+            CompletedToday = 0;
+        }
+    }
+
+    private async Task ShowContactInfo()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "Support: (555) 123-4567\nEmail: support@binbuddies.com\n\nFor urgent requests, please call directly.");
+    }
+}

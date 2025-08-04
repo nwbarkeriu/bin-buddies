@@ -1,0 +1,270 @@
+@page "/events"
+@using BinBuddies.Models
+@using BinBuddies.Services
+@inject ITodoService TodoService
+@inject ICustomerService CustomerService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Events</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Event Management</h1>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4 col-sm-6 mb-2">
+            <button class="btn btn-primary w-100" @onclick="ShowAddEventModal">
+                <span class="oi oi-plus"></span> Add New Event
+            </button>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-2">
+            <select class="form-select" @bind="SelectedFilter" @bind:after="FilterEvents">
+                <option value="">All Events</option>
+                <option value="Take Out">Take Out Only</option>
+                <option value="Bring In">Bring In Only</option>
+                <option value="Completed">Completed</option>
+                <option value="Pending">Pending</option>
+            </select>
+        </div>
+        <div class="col-md-4 col-12 mb-2">
+            <input class="form-control" type="text" placeholder="Search events..." 
+                   @bind="SearchTerm" @bind:after="FilterEvents" />
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="text-center p-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading events...</p>
+        </div>
+    }
+    else
+    {
+        <!-- Mobile Card View -->
+        <div class="d-block d-lg-none">
+            @foreach (var eventLog in FilteredEvents)
+            {
+                <div class="card mb-3 @(eventLog.Completed ? "border-success" : "border-warning")">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="card-title mb-1">@eventLog.Customer?.FullName</h6>
+                            <span class="badge @(eventLog.EventType == "Take Out" ? "bg-danger" : "bg-primary")">
+                                @eventLog.EventType
+                            </span>
+                        </div>
+                        
+                        <p class="card-text small text-muted mb-2">
+                            <span class="oi oi-location-pin"></span> @eventLog.Customer?.Address
+                        </p>
+                        
+                        <p class="card-text small mb-2">
+                            <span class="oi oi-calendar"></span> 
+                            @eventLog.EventDate.ToString("MMM dd, yyyy h:mm tt")
+                        </p>
+                        
+                        <p class="card-text small mb-3">
+                            <span class="oi oi-person"></span> @eventLog.AccountRep?.Name
+                        </p>
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       @bind="eventLog.Completed" 
+                                       @onclick="() => ToggleEventCompletion(eventLog)" />
+                                <label class="form-check-label small">
+                                    @(eventLog.Completed ? "Completed" : "Mark Complete")
+                                </label>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="() => EditEvent(eventLog)">
+                                    <span class="oi oi-pencil"></span>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteEvent(eventLog.Id)">
+                                    <span class="oi oi-trash"></span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Desktop Table View -->
+        <div class="d-none d-lg-block">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Customer</th>
+                            <th>Address</th>
+                            <th>Event Type</th>
+                            <th>Event Date</th>
+                            <th>Account Rep</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var eventLog in FilteredEvents)
+                        {
+                            <tr class="@(eventLog.Completed ? "table-success" : "")">
+                                <td>@eventLog.Customer?.FullName</td>
+                                <td>@eventLog.Customer?.Address</td>
+                                <td>
+                                    <span class="badge @(eventLog.EventType == "Take Out" ? "bg-danger" : "bg-primary")">
+                                        @eventLog.EventType
+                                    </span>
+                                </td>
+                                <td>@eventLog.EventDate.ToString("MMM dd, yyyy h:mm tt")</td>
+                                <td>@eventLog.AccountRep?.Name</td>
+                                <td>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               @bind="eventLog.Completed" 
+                                               @onclick="() => ToggleEventCompletion(eventLog)" />
+                                        <label class="form-check-label">
+                                            @(eventLog.Completed ? "Completed" : "Pending")
+                                        </label>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EditEvent(eventLog)">
+                                            <span class="oi oi-pencil"></span> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteEvent(eventLog.Id)">
+                                            <span class="oi oi-trash"></span> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        @if (!FilteredEvents.Any())
+        {
+            <div class="alert alert-info text-center">
+                <span class="oi oi-info"></span> No events found matching your criteria.
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<EventLog> AllEvents = new();
+    private List<EventLog> FilteredEvents = new();
+    private bool IsLoading = true;
+    private string SearchTerm = string.Empty;
+    private string SelectedFilter = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEvents();
+    }
+
+    private async Task LoadEvents()
+    {
+        IsLoading = true;
+        try
+        {
+            AllEvents = await TodoService.GetWeeklyEventsAsync();
+            FilteredEvents = AllEvents;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading events: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private void FilterEvents()
+    {
+        FilteredEvents = AllEvents.Where(e => 
+        {
+            // Text search
+            var matchesSearch = string.IsNullOrWhiteSpace(SearchTerm) ||
+                e.Customer?.FullName?.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) == true ||
+                e.Customer?.Address?.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) == true ||
+                e.AccountRep?.Name?.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase) == true ||
+                e.EventType.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase);
+
+            // Filter criteria
+            var matchesFilter = SelectedFilter switch
+            {
+                "Take Out" => e.EventType == "Take Out",
+                "Bring In" => e.EventType == "Bring In",
+                "Completed" => e.Completed,
+                "Pending" => !e.Completed,
+                _ => true
+            };
+
+            return matchesSearch && matchesFilter;
+        }).ToList();
+
+        StateHasChanged();
+    }
+
+    private async Task ToggleEventCompletion(EventLog eventLog)
+    {
+        try
+        {
+            var success = await TodoService.MarkEventCompleteAsync(eventLog.Id);
+            if (success)
+            {
+                await LoadEvents();
+                FilterEvents();
+            }
+            else
+            {
+                eventLog.Completed = !eventLog.Completed; // Revert the change
+                await JSRuntime.InvokeVoidAsync("alert", "Failed to update event status.");
+            }
+        }
+        catch (Exception ex)
+        {
+            eventLog.Completed = !eventLog.Completed; // Revert the change
+            await JSRuntime.InvokeVoidAsync("alert", $"Error updating event: {ex.Message}");
+        }
+    }
+
+    private void ShowAddEventModal()
+    {
+        JSRuntime.InvokeVoidAsync("alert", "Add event modal - To be implemented");
+    }
+
+    private void EditEvent(EventLog eventLog)
+    {
+        JSRuntime.InvokeVoidAsync("alert", $"Edit event for {eventLog.Customer?.FullName} - To be implemented");
+    }
+
+    private async Task DeleteEvent(int eventId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this event?");
+        if (confirmed)
+        {
+            try
+            {
+                // TODO: Implement delete event in service
+                await JSRuntime.InvokeVoidAsync("alert", "Delete functionality - To be implemented");
+                await LoadEvents();
+                FilterEvents();
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"Error deleting event: {ex.Message}");
+            }
+        }
+    }
+}

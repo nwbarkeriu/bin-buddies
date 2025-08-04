@@ -1,0 +1,169 @@
+@page "/todo"
+@using BinBuddies.Models
+@using BinBuddies.Services
+@inject ITodoService TodoService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Todo List</PageTitle>
+
+<div class="container">
+    <h1 class="text-center">To-Do List - 1 Week View</h1>
+    
+    @if (IsLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="sr-only">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="@EventForm" OnValidSubmit="@SubmitEvents">
+            <div class="list-group">
+                @foreach (var eventLog in WeeklyEvents)
+                {
+                    <div class="list-group-item">
+                        <strong>@eventLog.Customer?.FullName</strong>
+                        - <span>@eventLog.Customer?.Address (Trash Day: @GetCustomerTrashDay(eventLog.CustomerId))</span>
+                        <div>
+                            <small>Account Rep: @eventLog.AccountRep?.Name</small>
+                            <br>
+                            <small>Event Date: @eventLog.EventDate.ToString("dddd, MMMM d, yyyy h:mm tt")</small>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="takeout-@eventLog.Id" 
+                                   @bind="@EventForm.TakeOutEvents[eventLog.Id]" />
+                            <label class="form-check-label" for="takeout-@eventLog.Id">
+                                Take Out
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="bringin-@eventLog.Id" 
+                                   @bind="@EventForm.BringInEvents[eventLog.Id]" />
+                            <label class="form-check-label" for="bringin-@eventLog.Id">
+                                Bring In
+                            </label>
+                        </div>
+                    </div>
+                }
+            </div>
+            
+            @if (WeeklyEvents.Any())
+            {
+                <button type="submit" class="btn btn-primary mt-3">Submit</button>
+            }
+            else
+            {
+                <div class="alert alert-info mt-3">
+                    No events scheduled for the next week.
+                </div>
+            }
+        </EditForm>
+    }
+
+    <!-- Completed tasks section -->
+    @if (RepId.HasValue && CompletedTasks.Any())
+    {
+        <div class="mt-5">
+            <h2>Completed Tasks</h2>
+            <div class="list-group">
+                @foreach (var task in CompletedTasks)
+                {
+                    <div class="list-group-item">
+                        Task: @task.EventType for @task.Customer?.FullName on @task.EventDate.ToString("yyyy-MM-dd")
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public int? RepId { get; set; }
+
+    private List<EventLog> WeeklyEvents = new();
+    private List<EventLog> CompletedTasks = new();
+    private Dictionary<int, string?> CustomerTrashDays = new();
+    private bool IsLoading = true;
+    private EventFormModel EventForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        IsLoading = true;
+        try
+        {
+            WeeklyEvents = await TodoService.GetWeeklyEventsAsync(RepId);
+            
+            if (RepId.HasValue)
+            {
+                CompletedTasks = await TodoService.GetCompletedTasksAsync(RepId.Value);
+            }
+
+            // Initialize form dictionaries
+            EventForm.TakeOutEvents = WeeklyEvents.ToDictionary(e => e.Id, e => e.EventType == "Take Out");
+            EventForm.BringInEvents = WeeklyEvents.ToDictionary(e => e.Id, e => e.EventType == "Bring In");
+
+            // Load customer trash days
+            foreach (var eventLog in WeeklyEvents)
+            {
+                CustomerTrashDays[eventLog.CustomerId] = await TodoService.GetCustomerTrashDayAsync(eventLog.CustomerId);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error loading data: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task SubmitEvents()
+    {
+        try
+        {
+            var updates = new List<Task<bool>>();
+
+            foreach (var eventLog in WeeklyEvents)
+            {
+                var takeOut = EventForm.TakeOutEvents.GetValueOrDefault(eventLog.Id, false);
+                var bringIn = EventForm.BringInEvents.GetValueOrDefault(eventLog.Id, false);
+
+                if (takeOut || bringIn)
+                {
+                    updates.Add(TodoService.MarkEventCompleteAsync(eventLog.Id));
+                }
+            }
+
+            await Task.WhenAll(updates);
+            await LoadData(); // Reload data
+            await JSRuntime.InvokeVoidAsync("alert", "Events updated successfully!");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Error updating events: {ex.Message}");
+        }
+    }
+
+    private string GetCustomerTrashDay(int customerId)
+    {
+        return CustomerTrashDays.GetValueOrDefault(customerId, "Unknown");
+    }
+
+    public class EventFormModel
+    {
+        public Dictionary<int, bool> TakeOutEvents { get; set; } = new();
+        public Dictionary<int, bool> BringInEvents { get; set; } = new();
+    }
+}

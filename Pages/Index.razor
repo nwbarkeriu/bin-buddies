@@ -1,0 +1,262 @@
+﻿@page "/"
+@using BinBuddies.Services
+@inject ITodoService TodoService
+@inject ICustomerService CustomerService
+
+<PageTitle>Bin Buddies Dashboard</PageTitle>
+
+<div class="container-fluid">
+    <!-- Welcome Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="jumbotron bg-primary text-white p-4 rounded">
+                <h1 class="display-4">
+                    <span class="oi oi-home"></span> Welcome to Bin Buddies
+                </h1>
+                <p class="lead">Your comprehensive trash bin management system</p>
+                <hr class="my-4 bg-white">
+                <p class="mb-0">Manage customers, track events, and organize weekly tasks efficiently.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="me-3">
+                        <span class="oi oi-list display-6"></span>
+                    </div>
+                    <div>
+                        <h5 class="card-title mb-1">@TotalEvents</h5>
+                        <p class="card-text small mb-0">This Week's Events</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="me-3">
+                        <span class="oi oi-check display-6"></span>
+                    </div>
+                    <div>
+                        <h5 class="card-title mb-1">@CompletedEvents</h5>
+                        <p class="card-text small mb-0">Completed Events</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="me-3">
+                        <span class="oi oi-clock display-6"></span>
+                    </div>
+                    <div>
+                        <h5 class="card-title mb-1">@PendingEvents</h5>
+                        <p class="card-text small mb-0">Pending Events</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card bg-secondary text-white h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="me-3">
+                        <span class="oi oi-people display-6"></span>
+                    </div>
+                    <div>
+                        <h5 class="card-title mb-1">@TotalCustomers</h5>
+                        <p class="card-text small mb-0">Total Customers</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Action Cards -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3 class="mb-3">Quick Actions</h3>
+        </div>
+        
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <span class="oi oi-list text-primary display-4 mb-3"></span>
+                    <h5 class="card-title">Todo List</h5>
+                    <p class="card-text">View and manage weekly trash bin events</p>
+                    <a href="/todo" class="btn btn-primary">
+                        <span class="oi oi-arrow-right"></span> View Todo List
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <span class="oi oi-people text-success display-4 mb-3"></span>
+                    <h5 class="card-title">Customers</h5>
+                    <p class="card-text">Manage customer information and contacts</p>
+                    <a href="/customers" class="btn btn-success">
+                        <span class="oi oi-arrow-right"></span> Manage Customers
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 col-md-12 mb-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <span class="oi oi-calendar text-info display-4 mb-3"></span>
+                    <h5 class="card-title">Events</h5>
+                    <p class="card-text">Schedule and track all service events</p>
+                    <a href="/events" class="btn btn-info">
+                        <span class="oi oi-arrow-right"></span> View Events
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Today's Tasks -->
+    @if (TodaysTasks.Any())
+    {
+        <div class="row">
+            <div class="col-12">
+                <h3 class="mb-3">Today's Priority Tasks</h3>
+                <div class="list-group">
+                    @foreach (var task in TodaysTasks.Take(5))
+                    {
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">@task.Customer?.FullName</h6>
+                                <p class="mb-1 text-muted small">@task.Customer?.Address</p>
+                                <small class="text-muted">@task.EventDate.ToString("h:mm tt")</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge @(task.EventType == "Take Out" ? "bg-danger" : "bg-primary") mb-2">
+                                    @task.EventType
+                                </span>
+                                <br>
+                                <small class="text-muted">@task.AccountRep?.Name</small>
+                            </div>
+                        </div>
+                    }
+                </div>
+                @if (TodaysTasks.Count > 5)
+                {
+                    <div class="text-center mt-3">
+                        <a href="/todo" class="btn btn-outline-primary">
+                            View All @TodaysTasks.Count Tasks
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private int TotalEvents = 0;
+    private int CompletedEvents = 0;
+    private int PendingEvents = 0;
+    private int TotalCustomers = 0;
+    private List<BinBuddies.Models.EventLog> TodaysTasks = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            var weeklyEvents = await TodoService.GetWeeklyEventsAsync();
+            var customers = await CustomerService.GetAllCustomersAsync();
+
+            TotalEvents = weeklyEvents.Count;
+            CompletedEvents = weeklyEvents.Count(e => e.Completed);
+            PendingEvents = weeklyEvents.Count(e => !e.Completed);
+            TotalCustomers = customers.Count;
+            TodaysTasks = weeklyEvents
+                .Where(e => e.EventDate.Date == DateTime.Today)
+                .OrderBy(e => e.EventDate)
+                .ToList();
+        }
+        catch (Exception)
+        {
+            // Handle error gracefully
+            TotalEvents = 0;
+            CompletedEvents = 0;
+            PendingEvents = 0;
+            TotalCustomers = 0;
+        }
+    }
+}
+
+<div class="container">
+    <div class="text-center mb-4">
+        <h1 class="display-4">Welcome to Bin Buddies</h1>
+        <p class="lead">Your comprehensive trash bin management solution</p>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <span class="oi oi-list display-4 text-primary"></span>
+                    <h5 class="card-title mt-3">Todo Management</h5>
+                    <p class="card-text">Track and manage weekly trash bin events with an easy-to-use todo list.</p>
+                    <a href="/todo" class="btn btn-primary">View Todo List</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <span class="oi oi-people display-4 text-success"></span>
+                    <h5 class="card-title mt-3">Customer Management</h5>
+                    <p class="card-text">Manage customer information, addresses, and account representatives.</p>
+                    <a href="/customers" class="btn btn-success">Manage Customers</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <span class="oi oi-calendar display-4 text-info"></span>
+                    <h5 class="card-title mt-3">Event Tracking</h5>
+                    <p class="card-text">Schedule and track trash bin pickup and delivery events.</p>
+                    <a href="/events" class="btn btn-info">View Events</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h4 class="alert-heading">Getting Started</h4>
+                <p>Welcome to Bin Buddies! This application helps you manage trash bin services efficiently:</p>
+                <ul>
+                    <li><strong>Todo List:</strong> View and complete weekly trash bin tasks</li>
+                    <li><strong>Customers:</strong> Manage customer information and assignments</li>
+                    <li><strong>Events:</strong> Schedule and track pickup/delivery events</li>
+                </ul>
+                <p class="mb-0">Navigate using the menu on the left to get started!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<SurveyPrompt Title="How is Blazor working for you?" />
